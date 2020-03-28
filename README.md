@@ -26,3 +26,19 @@ virtualenv -p python3 venv
 source venv/bin/activate
 pip install -e .
 ```
+
+4. Install `ngrok` to setup light webserver. Follow steps here: https://ngrok.com/download
+
+### Running webserver
+
+1. Start local server
+```bash
+python run_server.py
+```
+
+2. ngrok magic
+```bash
+ngrok http 5000
+```
+
+3. Copy ngrok URL (with the `/whatsapp) in the "WHEN A MESSAGE COMES IN" box: https://www.twilio.com/console/sms/whatsapp/sandbox
