@@ -3,11 +3,14 @@ import numpy as np
 
 
 class Volunteers:
+
+	# init for the class
 	def __init__(self):
 		self.list = {}
 		self.g = None
 		self.ind2phone = {}
 
+	# add a volunteer with their details
 	def add_volunteer(self, phone_num,coordinates,is_available,delivery_slots):
 		vol_info = {phone_num:[coordinates,is_available,delivery_slots]}
 		self.list.update(vol_info)
@@ -34,6 +37,22 @@ class Volunteers:
 			vol_info = {phone_num:self.list[phone_num]}
 			nearest_volunteers.append(vol_info)
 		return dists, nearest_volunteers
+
+
+class Customers:
+
+	# init for the class
+	def __init__(self):
+		self.list = {}
+
+	# add a new customer with their details
+	def add_customer(self, phone_num, coordinates, order, deliverbytime):
+		cust_info = {phone_num:[coordinates,order,deliverbytime]}
+		self.list.update(cust_info)
+
+	# remove a customer
+	def remove_customer(self, phone_num):
+		self.list.pop(phone_num,None)
 
 
 if __name__ == "__main__":
