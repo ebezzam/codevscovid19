@@ -16,18 +16,33 @@ Enact changes:
 source ~/.bash_profile
 ```
 
-2. Create virtual / Conda environment:
+2. Get an API key from LocationIQ: https://locationiq.com/
+
+Add it to your environment variables:
+```bash
+vim ~/.bash_profile 
+```
+And add the following lines with your values:
+```bash
+export LOCATIONIQ_TOKEN=[YOUR_KEY]
+```
+Enact changes:
+```bash
+source ~/.bash_profile
+```
+
+3. Create virtual / Conda environment:
 ```bash
 virtualenv -p python3 venv 
 ```
 
-3. Install in your environment:
+4. Install in your environment:
 ```bash
 source venv/bin/activate
 pip install -e .
 ```
 
-4. Install `ngrok` to setup light webserver. Follow steps here: https://ngrok.com/download
+5. Install `ngrok` to setup light webserver. Follow steps here: https://ngrok.com/download
 
 ### Running webserver
 
