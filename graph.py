@@ -1,6 +1,7 @@
 from sklearn.neighbors import KDTree
 import numpy as np
 
+
 class Volunteers:
 	def __init__(self):
 		self.list = {}
@@ -33,6 +34,7 @@ class Volunteers:
 			vol_info = {phone_num:self.list[phone_num]}
 			nearest_volunteers.append(vol_info)
 		return dists, nearest_volunteers
+
 
 if __name__ == "__main__":
 	vols = Volunteers()

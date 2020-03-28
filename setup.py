@@ -8,7 +8,9 @@ def main():
 
     install_requires = [
         'twilio',
-        'Flask >= 0.12'
+        'Flask >= 0.12',
+        'numpy',
+        'scikit-learn'
     ]
     packages = [p for p in find_packages() if "test" not in p]
 
