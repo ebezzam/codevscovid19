@@ -1,5 +1,8 @@
 from flask import Flask, request, render_template
 from flask_sqlalchemy import SQLAlchemy
+from twilio.rest import Client
+from twilio.twiml.messaging_response import MessagingResponse
+
 from sqlalchemy import and_
 import os
 import requests
@@ -15,6 +18,16 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 sandbox_number = "+14155238886"
 sandbox_code = "join lower-parent"
+
+
+# twilio service
+account_sid = os.environ.get('TWILIO_SID')
+auth_token = os.environ.get('TWILIO_TOKEN')
+if account_sid is None:
+    raise ValueError("Missing TWILIO_SID")
+if auth_token is None:
+    raise ValueError("Missing TWILIO_TOKEN")
+client = Client(account_sid, auth_token)
 
 from volunteer import Volunteer
 
@@ -172,6 +185,37 @@ def remove():
     return render_template("delete.html")
 
 
+@app.route("/get_info", methods=['GET', 'POST'])
+def get_info():
+    """
+    Example:
+
+    https://3fb61cb3.ngrok.io/get_info
+    """
+
+    if request.method == "POST":
+        number = request.form.get('number').replace(" ", "")  # remove spaces
+        reg_volunteer = Volunteer.query.filter_by(number=number)
+
+        if reg_volunteer.count() == 0:
+            return "this number is not in our database"
+        else:
+            info = reg_volunteer.first().serialize()
+            body = [
+                f"*{_key}* : {info[_key]}" for _key in info.keys()
+            ]
+            body = "\n".join(body)
+            body = "Hey there! This is the info we have on you:\n\n" + body
+            message = client.messages.create(
+                from_=f'whatsapp:{sandbox_number}',
+                body=body,
+                to='whatsapp:{}'.format(number)
+            )
+            return f"sent message : {message.sid}"
+
+    return render_template("get_info.html")
+
+
 @app.route("/volunteer", methods=['GET', 'POST'])
 def add_volunteer_form():
     """
@@ -250,4 +294,78 @@ def add_volunteer_form():
     return render_template("getdata.html")
 
 
+@app.route("/helpme", methods=['GET', 'POST'])
+def add_client_form():
+    """
+    Example:
 
+    https://3fb61cb3.ngrok.io/helpme
+    """
+
+    if request.method == "POST":
+        number = request.form.get('number').replace(" ", "")   # remove spaces
+        street = request.form.get('street')
+        city = request.form.get('city')
+        country = request.form.get('country')
+        is_available_morning = request.form.get('morning') != None
+        is_available_afternoon = request.form.get('afternoon') != None
+        is_available_evening = request.form.get('evening') != None
+
+        # if street == "":
+        #     street = None
+        # if city == "":
+        #     city = None
+        # if country == "":
+        #     country = None
+        # if street is not None and city is not None and country is not None:
+        #     # geolocate
+        #     data = {
+        #         'key': os.environ.get('LOCATIONIQ_TOKEN'),
+        #         'street': street,
+        #         "city": city,
+        #         "country": country,
+        #         'format': 'json'
+        #     }
+        #     response = requests.get(locationiq_url, params=data)
+        #     d = json.loads(response.text)[0]
+        #     address = d["display_name"]
+        #     longitude = float(d["lon"])
+        #     latitude = float(d["lat"])
+        #
+        # else:
+        #     street = None
+        #     city = None
+        #     country = None
+        #     longitude = None
+        #     latitude = None
+
+        # # create volunteer object
+        # volunteer = Volunteer(
+        #     number=number,
+        #     # street_number=street_number,
+        #     street=street,
+        #     city=city,
+        #     country=country,
+        #     longitude=longitude,
+        #     latitude=latitude,
+        #     is_available_am=is_available_morning,
+        #     is_available_pm=is_available_afternoon or is_available_evening,
+        # )
+        #
+        # # check to see if number already in list
+        # reg_volunteer = Volunteer.query.filter_by(number=volunteer.number).first()
+        #
+        # if reg_volunteer is not None:
+        #     db.session.delete(reg_volunteer)
+        #     db.session.add(volunteer)
+        #     db.session.commit()
+        #     return f"{number} already in volunteer list. Updating with new info."
+        #
+        # else:
+        #     db.session.add(volunteer)
+        #     db.session.commit()
+        #     return f"Added {number} to volunteer list. " \
+        #            f"For your first mission, from WhatsApp send '{sandbox_code}' " \
+        #            f" to: {sandbox_number}"
+
+    return render_template("help.html")

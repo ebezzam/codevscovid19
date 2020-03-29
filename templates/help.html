@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Volunteer</title>
+    <title>Get Help</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
         crossorigin="anonymous">
 </head>
@@ -17,10 +17,10 @@
         <a class="nav-link" href="get_info">My Info</a>
         </li>
         <li class="nav-item">
-        <a class="nav-link active" href="volunteer">Volunteer</a>
+        <a class="nav-link" href="volunteer">Volunteer</a>
         </li>
         <li class="nav-item">
-        <a class="nav-link" href="helpme">Get Help</a>
+        <a class="nav-link active" href="helpme">Get Help</a>
         </li>
         <li class="nav-item">
         <a class="nav-link" href="delete">Unsubscribe</a>
@@ -34,7 +34,7 @@
             <br>
 
             <div class="row align-items-center justify-content-center">
-                <h1>Help somebody!</h1>
+                <h1>Need some help?</h1>
             </div>
             <br>
 
@@ -53,15 +53,15 @@
                 </div>
                 <br>
 
-                <label for="street">Street (optional)</label>
+                <label for="city">City</label>
                 <div class="form-row">
-                    <input class="form-control" type="text" placeholder="With or without street number, e.g. 1600 Pennsylvania Ave NW" id="street" name="street">
+                    <input class="form-control" type="text" placeholder="E.g. Washington DC" id="city" name="city" required>
                 </div>
                 <br>
 
-                <label for="city">City (optional)</label>
+                <label for="street">Street (optional)</label>
                 <div class="form-row">
-                    <input class="form-control" type="text" placeholder="E.g. Washington DC" id="city" name="city">
+                    <input class="form-control" type="text" placeholder="With or without street number, e.g. 1600 Pennsylvania Ave NW" id="street" name="street">
                 </div>
                 <br>
 
@@ -70,12 +70,19 @@
                     <input class="form-control" type="text" placeholder="E.g. USA" id="country" name="country">
                 </div>
                 <br>
+                <br>
 
 
 
-<!--                Availability-->
+<!--                When should job be done?-->
                 <div class="row align-items-center justify-content-center">
-                    <h2>Availability</h2>
+                    <h2>When do you need this done?</h2>
+                </div>
+
+
+                <div class="form-row ">
+                    <label for="date">Date</label>
+                    <input class="form-control " type="date" placeholder="Date" id="date" name="date" required>
                 </div>
                 <br>
 
@@ -94,6 +101,8 @@
                     <label class="form-check-label" for="evening">Evening (16h-20h)</label>
                 </div>
                 </div>
+
+
 
                 <br>
                 <div class="row align-items-center justify-content-center">
