@@ -1,8 +1,11 @@
 from flask import Flask, request, render_template
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import and_
 import os
 import requests
 import json
+
+from utils import Coordinate
 
 app = Flask(__name__)
 
@@ -85,6 +88,66 @@ def delete_number():
         return f"Removed {number} from database."
     else:
         return f"{number} was not in database."
+
+
+@app.route("/get_volunteers")
+def get_volunteers():
+    """
+    Example:
+
+    https://3fb61cb3.ngrok.io/get_volunteers?pwd=PASSWORD&city=Lausanne
+
+    https://3fb61cb3.ngrok.io/get_volunteers?pwd=PASSWORD&lon=6.58989274833333&lat=46.5267366&dist=5
+
+    where PASSWORD should be replaced with appropriate password
+    """
+
+    pwd = request.args.get('pwd')
+    if pwd != os.environ.get('COVID19_TOKEN'):
+        return "Access denied"
+
+    city = request.args.get('city')
+    longitude = request.args.get('lon')
+    if longitude is not None:
+        longitude = float(longitude)
+    latitude = request.args.get('lat')
+    if latitude is not None:
+        latitude = float(latitude)
+    max_dist = request.args.get('dist')
+    if max_dist is None:
+        max_dist = 5
+    else:
+        max_dist = float(max_dist)
+
+    # query registered volunteers
+    # reg_volunteer = Volunteer.query.filter(Volunteer.latitude.isnot(None))
+    if longitude is not None and latitude is not None:
+
+        coord = Coordinate(lon=longitude, lat=latitude)
+        max_coord, min_coord = coord.bounding_box(max_dist=max_dist)
+        reg_volunteer = Volunteer.query.filter(
+            and_(
+                Volunteer.longitude.between(min_coord.lon, max_coord.lon),
+                Volunteer.latitude.between(min_coord.lat, max_coord.lat)
+            )
+        )
+    elif city is not None:
+        reg_volunteer = Volunteer.query.filter_by(city=city)
+    else:
+        raise ValueError("Provide GPS coordinates or city.")
+
+    # build result
+    n_volunteers = reg_volunteer.count()
+    result = {
+            "n_volunteers": n_volunteers
+        }
+
+    numbers = reg_volunteer.all()
+    volunteers = []
+    for _num in numbers:
+        volunteers.append(_num.serialize())
+    result["volunteers"] = volunteers
+    return result
 
 
 @app.route("/delete", methods=['GET', 'POST'])

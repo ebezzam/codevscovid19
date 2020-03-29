@@ -109,3 +109,13 @@ Run site server:
 ```bash
 python manage.py runserver
 ```
+
+### Get entries from dataset
+
+Add password to environment variable `COVID19_TOKEN`.
+
+Get it from Eric.
+
+Endpoint: 
+
+
