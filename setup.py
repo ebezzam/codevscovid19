@@ -10,7 +10,11 @@ def main():
         'twilio',
         'Flask >= 0.12',
         'numpy',
-        'scikit-learn'
+        'scikit-learn',
+        'flask_sqlalchemy',
+        'flask_script',
+        'flask_migrate',
+        'psycopg2-binary'
     ]
     packages = [p for p in find_packages() if "test" not in p]
 
