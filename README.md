@@ -2,6 +2,8 @@
 
 ### Setup
 
+Sorry very sparse since made during hackathon :D
+
 1. Add following environment variables to use Twilio. E.g. on macOS, open your bash profile:
 ```bash
 vim ~/.bash_profile 
@@ -44,7 +46,39 @@ pip install -e .
 
 5. Install `ngrok` to setup light webserver. Follow steps here: https://ngrok.com/download
 
-### Running webserver for webhook
+### Launching website!!
+
+First create the databases
+```bash
+sqlite3 volunteers.db   # .exit to quit
+sqlite3 clients.db      # .exit to quit
+```
+
+To delete in case of issues
+```bash
+rm *.db
+```
+
+launch :)
+```bash
+python manage.py runserver
+```
+
+### Get entries from database
+
+Volunteer endpoint:
+https://3fb61cb3.ngrok.io/get_volunteers?pwd=PASSWORD&lon=6.58989274833333&lat=46.5267366&dist=5
+
+
+Client endpoint:
+https://3fb61cb3.ngrok.io/get_clients?pwd=PASSWORD&lon=6.58989274833333&lat=46.5267366&dist=5
+
+Get PASSWORD from Eric, and add to environment variable `COVID19_TOKEN`.
+
+
+## From tutorials
+
+### Running webserver for webhook to test Twilio
 
 Largely following this tutorial: https://www.twilio.com/docs/sms/quickstart/python-msg-svc
 
@@ -95,32 +129,4 @@ heroku login
 
 Docs for Flask SQL: https://flask-sqlalchemy.palletsprojects.com/en/2.x/queries/
 Docs for Bootstrap (framework for website): https://getbootstrap.com/docs/4.4/components/forms/#checkboxes-and-radios
-
-
-### Get entries from dataset
-
-
-```bash
-sqlite3 volunteers.db   # .exit to quit
-sqlite3 clients.db      # .exit to quit
-```
-
-To delete
-```bash
-rm *.db
-```
-
-launch:
-```bash
-python manage.py runserver
-```
-
-### Get entries from dataset
-
-Add password to environment variable `COVID19_TOKEN`.
-
-Get it from Eric.
-
-Endpoint: 
-
 

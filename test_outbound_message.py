@@ -1,8 +1,7 @@
 from twilio.rest import Client
 import os
 
-number = "+16503051656"   # eric
-number = "+41766278840"   # vidit
+number = ""
 
 account_sid = os.environ.get('TWILIO_SID')
 auth_token = os.environ.get('TWILIO_TOKEN')
@@ -14,7 +13,7 @@ client = Client(account_sid, auth_token)
 
 message = client.messages.create(
     from_='whatsapp:+14155238886',
-    body="boo",
+    body="come back!",
     to='whatsapp:{}'.format(number)
 )
 

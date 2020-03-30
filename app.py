@@ -30,6 +30,7 @@ from client import Client
 db.create_all()
 
 locationiq_url = "https://us1.locationiq.com/v1/search.php"
+locationiq_url_reverse = "https://us1.locationiq.com/v1/reverse.php"
 sandbox_number = "+14155238886"
 sandbox_code = "join lower-parent"
 
@@ -477,6 +478,7 @@ cuts = GraphCust()
 # hack to test when have one phone number to test
 vol_timings = {'1':'Morning','2':'Afternoon','3':'Evening'}
 cust_timings = {'a':'Morning','b':'Afternoon','c':'Evening'}
+timings = {'1':'Morning','2':'Afternoon','3':'Evening'}
 
 
 @app.route("/whatsapp", methods=['GET', 'POST'])
@@ -488,153 +490,334 @@ def whatsapp_parser():
     longitude = request.values.get("Longitude", None)
     latitude = request.values.get("Latitude", None)
     number = request.values.get("From", None)
+    number = number.split(":")[1]
     n_media = int(request.values.get("NumMedia"))
 
     # assuming the volunteer's message starts with "volunteer" and
     # customer's with "customer"
 
-    # dummy reply
-    reply_for_text = "Ahoy! Thanks so much for your message."
+    # default reply
+    reply_for_text = "Hey there! Sorry I didn't understand that.\n" \
+                     "Send 'Volunteer' to help.\n" \
+                     "Send 'Customer' to get help.\n" \
+                     "And we'll guide you through everything else you need to send."
 
     # when message is text
     if text is not None:
 
+        if text.lower() == "remove":
+            reg_volunteer = Volunteer.query.filter_by(number=number).first()
+            reg_client = Client.query.filter_by(number=number).first()
+
+            if reg_volunteer is not None or reg_client is not None:
+                if reg_volunteer is not None:
+                    db.session.delete(reg_volunteer)
+                    db.session.commit()
+                if reg_client is not None:
+                    db.session.delete(reg_client)
+                    db.session.commit()
+                reply_for_text = "Your number has been removed from our database. " \
+                                 "Send 'Volunteer' or 'Customer' to signup again."
+
+            else:
+                reply_for_text = "Your number is not in our database."
+
         # update the list of customers
         if text.lower() == "customer":
-            cuts.update_data({'phone_num': number}, vols.active_vol_list)
-            reply_for_text = "Your number is registered as a Customer. Tell us your possible delivery timings. \n Send A for Morning 8am-12pm \n B for Afternoon 12pm-4pm \n C for Evening 4pm-8pm\n You can choose multiple timings."
+
+            # check to see if already registered as volunteer
+            client = Client(number=number)
+            reg_client = Client.query.filter_by(number=client.number).first()
+
+            if reg_client is not None:
+
+                info = reg_client.serialize()
+                body = [
+                    f"*{_key}* : {info[_key]}" for _key in info.keys()
+                ]
+                body = "\n".join(body)
+                reply_for_text = "Your number is already registered as a " \
+                                 "Customer. This is the info we have on " \
+                                 "you:\n\n" + body
+                reply_for_text += "\n\nTo let us know when you want your grocery " \
+                                 "delivered, send:\n" \
+                                 "*1* for Morning 8am-12pm\n" \
+                                 "*2* for Afternoon 12pm-4pm\n" \
+                                 "*3* for Evening 4pm-8pm\n" \
+                                 "You can choose multiple timings by " \
+                                 "separating them with spaces."
+                reply_for_text += "\n\nSend your location so we can match you with a volunteer."
+            else:
+                db.session.add(client)
+                db.session.commit()
+                # reply_for_text = "Your number is registered as a Customer! " \
+                #                  "Send us your location so that we can " \
+                #                  "find people nearby to help :)"
+                reply_for_text = "Your number is registered as a Customer! " \
+                                 "You can unsubscribe by sending 'Remove'." \
+                                 "\n\nLet us know when you want your groceries " \
+                                 "delivered. Send:\n" \
+                                 "*1* for Morning 8am-12pm\n" \
+                                 "*2* for Afternoon 12pm-4pm\n" \
+                                 "*3* for Evening 4pm-8pm\n" \
+                                 "You can choose multiple timings by " \
+                                 "separating them with spaces."
+
+            # cuts.update_data({'phone_num': number}, vols.active_vol_list)
+            # reply_for_text = "Your number is registered as a Customer. Tell us your possible delivery timings. \n Send A for Morning 8am-12pm \n B for Afternoon 12pm-4pm \n C for Evening 4pm-8pm\n You can choose multiple timings."
 
         # update the list of volunteers
         elif text.lower() == "volunteer":
-            vols.update_data({'phone_num': number}, cuts.active_cust_list)
-            reply_for_text = "Your number is registered as a Volunteer. Tell us your availability. \n Send 1 for Morning 8am-12pm \n 2 for Afternoon 12pm-4pm \n 3 for Evening 4pm-8pm\n You can choose multiple timings."
+
+            # check to see if already registered as volunteer
+            volunteer = Volunteer(number=number)
+            reg_volunteer = Volunteer.query.filter_by(
+                number=volunteer.number).first()
+
+            if reg_volunteer is not None:
+
+                info = reg_volunteer.serialize()
+                body = [
+                    f"*{_key}* : {info[_key]}" for _key in info.keys()
+                ]
+                body = "\n".join(body)
+                reply_for_text = "Your number is already registered as a " \
+                                 "Volunteer. This is the info we have on " \
+                                 "you:\n\n" + body
+                reply_for_text += "\n\nLet us know when you can help. Send:\n" \
+                                 "*1* for Morning 8am-12pm\n" \
+                                 "*2* for Afternoon 12pm-4pm\n" \
+                                 "*3* for Evening 4pm-8pm\n" \
+                                 "You can choose multiple timings by " \
+                                 "seperating them with spaces."
+                reply_for_text += "\n\nSend your location so we can match you with someone who needs help."
+
+            else:
+                db.session.add(volunteer)
+                db.session.commit()
+                # reply_for_text = "Your number is registered as a Volunteer! " \
+                #                  "Send us your location so we can connect " \
+                #                  "you with people that need help."
+                reply_for_text = "Your number is registered as a Volunteer! " \
+                                 "You can unsubscribe by sending 'Remove'." \
+                                 "\n\nLet us know when you can help. Send:\n" \
+                                 "*1* for Morning 8am-12pm\n" \
+                                 "*2* for Afternoon 12pm-4pm\n" \
+                                 "*3* for Evening 4pm-8pm\n" \
+                                 "You can choose multiple timings by " \
+                                 "seperating them with spaces."
 
         # update the particular volunteer's timing
         elif text.split(' ')[0] in ['1', '2', '3']:
-            # assume text to be space separated
-            available_times = text.split(' ')
-            available_times = [vol_timings[t] for t in available_times]
-            vols.update_data(
-                {'phone_num': number, 'available_times': available_times},
-                cuts.active_cust_list)
-            opted_times = ' '.join(available_times)
-            reply_for_text = f"Your availability is set for {opted_times}. Please send your location."
 
-        # update the particular customer's timing
-        elif text.split(' ')[0].lower() in ["a", "b", "c"]:
-            # assume text to be space separated
             available_times = text.split(' ')
-            available_times = [cust_timings[t.lower()] for t in
-                               available_times]
-            cuts.update_data(
-                {'phone_num': number, 'delivery_by': available_times},
-                vols.active_vol_list)
-            opted_times = ' '.join(available_times)
-            reply_for_text = f"Your delivery timings are set for {opted_times}. Please take a picture of your grocery list"
+            available_times = [timings[t] for t in available_times]
+
+            reg_volunteer = Volunteer.query.filter_by(number=number).first()
+            reg_client = Client.query.filter_by(number=number).first()
+            if reg_client is not None:
+                user = reg_client
+            elif reg_volunteer is not None:
+                user = reg_volunteer
+            else:
+                user = None
+
+            if user is not None:
+                if "Morning" in available_times:
+                    user.morning = True
+                if "Afternoon" in available_times:
+                    user.afternoon = True
+                if "Evening" in available_times:
+                    user.evening = True
+
+            else:
+                reply_for_text = "Hey there! Your number doesn't seem to be " \
+                                 "registered.\n" \
+                                 "Send 'Volunteer' to help.\n" \
+                                 "Send 'Customer' to get help.\n" \
+                                 "And we'll guide you through everything " \
+                                 "else you need to send."
+
+            if user is not None:
+                available_times = []
+                if user.morning:
+                    available_times.append("Morning")
+                if user.afternoon:
+                    available_times.append("Afternoon")
+                if user.evening:
+                    available_times.append("Evening")
+                opted_times = ', '.join(available_times)
+                if reg_volunteer is not None:
+                    reply_for_text = f"Your availability: " \
+                                     f"{opted_times}.\nPlease send your location."
+
+                else:
+                    reply_for_text = f"Your delivery slots: " \
+                                     f"{opted_times}.\nPlease take a picture of your grocery list."
+
+            db.session.commit()
+
+            # # assume text to be space separated
+            # available_times = text.split(' ')
+            # available_times = [vol_timings[t] for t in available_times]
+            # vols.update_data(
+            #     {'phone_num': number, 'available_times': available_times},
+            #     cuts.active_cust_list)
+            # opted_times = ' '.join(available_times)
+            # reply_for_text = f"Your availability is set for {opted_times}. Please send your location."
+
+        # # update the particular customer's timing
+        # elif text.split(' ')[0].lower() in ["a", "b", "c"]:
+        #     # assume text to be space separated
+        #     available_times = text.split(' ')
+        #     available_times = [cust_timings[t.lower()] for t in
+        #                        available_times]
+        #     cuts.update_data(
+        #         {'phone_num': number, 'delivery_by': available_times},
+        #         vols.active_vol_list)
+        #     opted_times = ' '.join(available_times)
+        #     reply_for_text = f"Your delivery timings are set for {opted_times}. Please take a picture of your grocery list"
 
     # Start our response
     resp = MessagingResponse()
 
     # save the grocery list image url
     if n_media > 0:
-        media_url = request.values.get("MediaUrl0")
-        cuts.update_data({'phone_num': number, 'order': media_url},
-                         vols.active_vol_list)
 
-        resp.message(body="Got your picture!. Send us your location.")
+        reg_client = Client.query.filter_by(number=number).first()
+
+        if reg_client is not None:
+            media_url = request.values.get("MediaUrl0")
+            reg_client.order = media_url
+            db.session.commit()
+            # cuts.update_data({'phone_num': number, 'order': media_url},
+            #                  vols.active_vol_list)
+
+            resp.message(body="Got your picture!. Send us your location.")
+        else:
+            resp.message(body="Hmm we don't seem to have you set up as "
+                              "a customer. Send 'Customer' to get started."
+                         )
 
     # handling for location and since this the last step in the sequence of instruction,
     # we try to find a match here
     elif longitude is not None:
-        # return corresponding address for now
+
+        # check for register user
+        vol = Volunteer.query.filter_by(number=number).first()
+        cust = Client.query.filter_by(number=number).first()
+
+        if cust is not None:
+            user = cust
+        elif vol is not None:
+            user = vol
+        else:
+            user = None
+            reply_text_body = "Hey there! Your number doesn't seem to be " \
+                              "registered.\n" \
+                              "Send 'Volunteer' to help.\n" \
+                              "Send 'Customer' to get help.\n" \
+                              "And we'll guide you through everything " \
+                              "else you need to send."
+
+        # parse location info
         data = {
             'key': os.environ.get('LOCATIONIQ_TOKEN'),
             'lat': str(latitude),
             'lon': str(longitude),
             'format': 'json'
         }
-        response = requests.get(locationiq_url, params=data)
-
+        response = requests.get(locationiq_url_reverse, params=data)
         d = json.loads(response.text)
         address = d["display_name"]
         address_dict = d["address"]
 
-        reply_text_body = f"Your address : {address}."
+        # save in database
+        user.country = address_dict["country"]
+        user.city = address_dict["city"]
+        user.street = address_dict["house_number"] + " " + address_dict["road"]
+        user.longitude = longitude
+        user.latitude = latitude
 
-        # check if the location sent was of a customer or volunteer, by comparing the keys.
-        if number in cuts.list.keys():
-            # update the customer location and receive the match
-            vol, cust, time = cuts.update_data({'phone_num': number,
-                                                'address_info': [longitude,
-                                                                 latitude,
-                                                                 address_dict]},
-                                               vols.active_vol_list)
+        reply_text_body = f"Saved the following address : {address}."
+        db.session.commit()
 
-            # check if a match was found
-            if vol is None:
-                # reply to the customer
-                reply_text_body += "We'll get back to you with info of your friendly neighbor."
-            else:
-                # reply to the customer
-                reply_text_body += "Your Neighbor:{} has agreed to do the delivery in the {}. You can get in touch with them.".format(
-                    vol.number[9:], time)
-                resp.message(body="")
-                message = client.messages.create(
-                    from_='whatsapp:+14155238886',
-                    body=reply_text_body,
-                    to='whatsapp:{}'.format(cust.number[9:])
-                )
-                print(message.sid)
+        resp.message(body=reply_text_body)
 
-                # reply to the volunteer
-                vol_message = "We found a customer:{} needing your help. Their address is :{}. You can see their grocery list in the image attached to be delivery by the {}".format(
-                    cust.number[9:], cuts.get_address(cust.number), time)
-
-                message = TwilioClient.messages.create(
-                    from_='whatsapp:+14155238886',
-                    body=vol_message,
-                    media_url=[cust.order],
-                    to='whatsapp:{}'.format(vol.number[9:])
-                )
-                print(message.sid)
-            resp.message(body=reply_text_body)
-
-        # check if the location sent was of a customer or volunteer, by comparing the keys.
-        elif number in vols.list.keys():
-            # update customer location and receive the match
-            vol, cust, time = vols.update_data({'phone_num': number,
-                                                'address_info': [longitude,
-                                                                 latitude,
-                                                                 address_dict]},
-                                               cuts.active_cust_list)
-
-            # check if a match was found
-            if vol is None:
-                # reply to the volunteer
-                reply_text_body += "Thanks for your help. We'll get back to with the info of the delivery."
-                resp.message(body=reply_text_body)
-            else:
-                # reply to the volunteer
-                reply_text_body += "\nThanks for your help. We found {} at this address:{}. Attached is the image of their grocery list to be delivery by the {}.".format(
-                    cust.number[9:], cuts.get_address(cust.number), time)
-                resp.message(body="")
-                message = client.messages.create(
-                    from_='whatsapp:+14155238886',
-                    body=reply_text_body,
-                    media_url=[cust.order],
-                    to='whatsapp:{}'.format(vol.number[9:])
-                )
-                print(message.sid)
-
-                # reply to the customer
-                cust_message = "We found a neighbor:{} ready to help you and make delivery by the {}. You can get in touch with them.".format(
-                    vol.number[9:], time)
-                message = client.messages.create(
-                    from_='whatsapp:+14155238886',
-                    body=cust_message,
-                    to='whatsapp:{}'.format(cust.number[9:])
-                )
-                print(message.sid)
+        # # check if the location sent was of a customer or volunteer, by comparing the keys.
+        # if number in cuts.list.keys():
+        #     # update the customer location and receive the match
+        #     vol, cust, time = cuts.update_data({'phone_num': number,
+        #                                         'address_info': [longitude,
+        #                                                          latitude,
+        #                                                          address_dict]},
+        #                                        vols.active_vol_list)
+        #
+        #     # check if a match was found
+        #     if vol is None:
+        #         # reply to the customer
+        #         reply_text_body += "We'll get back to you with info of your friendly neighbor."
+        #     else:
+        #         # reply to the customer
+        #         reply_text_body += "Your Neighbor:{} has agreed to do the delivery in the {}. You can get in touch with them.".format(
+        #             vol.number[9:], time)
+        #         resp.message(body="")
+        #         message = client.messages.create(
+        #             from_='whatsapp:+14155238886',
+        #             body=reply_text_body,
+        #             to='whatsapp:{}'.format(cust.number[9:])
+        #         )
+        #         print(message.sid)
+        #
+        #         # reply to the volunteer
+        #         vol_message = "We found a customer:{} needing your help. Their address is :{}. You can see their grocery list in the image attached to be delivery by the {}".format(
+        #             cust.number[9:], cuts.get_address(cust.number), time)
+        #
+        #         message = TwilioClient.messages.create(
+        #             from_='whatsapp:+14155238886',
+        #             body=vol_message,
+        #             media_url=[cust.order],
+        #             to='whatsapp:{}'.format(vol.number[9:])
+        #         )
+        #         print(message.sid)
+        #     resp.message(body=reply_text_body)
+        #
+        # # check if the location sent was of a customer or volunteer, by comparing the keys.
+        # elif number in vols.list.keys():
+        #     # update customer location and receive the match
+        #     vol, cust, time = vols.update_data({'phone_num': number,
+        #                                         'address_info': [longitude,
+        #                                                          latitude,
+        #                                                          address_dict]},
+        #                                        cuts.active_cust_list)
+        #
+        #     # check if a match was found
+        #     if vol is None:
+        #         # reply to the volunteer
+        #         reply_text_body += "Thanks for your help. We'll get back to with the info of the delivery."
+        #         resp.message(body=reply_text_body)
+        #     else:
+        #         # reply to the volunteer
+        #         reply_text_body += "\nThanks for your help. We found {} at this address:{}. Attached is the image of their grocery list to be delivery by the {}.".format(
+        #             cust.number[9:], cuts.get_address(cust.number), time)
+        #         resp.message(body="")
+        #         message = client.messages.create(
+        #             from_='whatsapp:+14155238886',
+        #             body=reply_text_body,
+        #             media_url=[cust.order],
+        #             to='whatsapp:{}'.format(vol.number[9:])
+        #         )
+        #         print(message.sid)
+        #
+        #         # reply to the customer
+        #         cust_message = "We found a neighbor:{} ready to help you and make delivery by the {}. You can get in touch with them.".format(
+        #             vol.number[9:], time)
+        #         message = client.messages.create(
+        #             from_='whatsapp:+14155238886',
+        #             body=cust_message,
+        #             to='whatsapp:{}'.format(cust.number[9:])
+        #         )
+        #         print(message.sid)
 
     else:
         resp.message(body=reply_for_text)
