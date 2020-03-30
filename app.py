@@ -1,7 +1,6 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from twilio.rest import Client
-from twilio.twiml.messaging_response import MessagingResponse
+from twilio.rest import Client as TwilioClient
 
 from sqlalchemy import and_
 import os
@@ -11,11 +10,23 @@ import json
 from utils import Coordinate
 
 app = Flask(__name__)
+app.config["SQLALCHEMY_DATABASE_URI"] = \
+    "sqlite://///Users/eric/GITHUB/codevscovid19/volunteers.db"
+app.config["SQLALCHEMY_BINDS"] = {
+    "clients": "sqlite://///Users/eric/GITHUB/codevscovid19/clients.db"
+}
 
-app.config.from_object(os.environ['APP_SETTINGS'])
-locationiq_url = "https://us1.locationiq.com/v1/search.php"
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# app.config.from_object(os.environ['APP_SETTINGS'])
+# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
+
+from volunteer import Volunteer
+from client import Client
+
+db.create_all()
+
+locationiq_url = "https://us1.locationiq.com/v1/search.php"
 sandbox_number = "+14155238886"
 sandbox_code = "join lower-parent"
 
@@ -27,80 +38,7 @@ if account_sid is None:
     raise ValueError("Missing TWILIO_SID")
 if auth_token is None:
     raise ValueError("Missing TWILIO_TOKEN")
-client = Client(account_sid, auth_token)
-
-from volunteer import Volunteer
-
-
-@app.route("/")
-def hello():
-    return "Hello World!"
-
-
-@app.route("/add/volunteer")
-def add_volunteer():
-    """
-    Example:
-
-    http://127.0.0.1:5000/volunteer?number=%2B16503051656
-    """
-    number = request.args.get('number')
-    street_number = request.args.get('street_number')
-    street = request.args.get('street')
-    city = request.args.get('city')
-    country = request.args.get('country')
-    longitude = request.args.get('longitude')
-    latitude = request.args.get('latitude')
-    is_available_am = request.args.get('is_available_am')
-    is_available_pm = request.args.get('is_available_pm')
-
-    # create volunteer object
-    volunteer = Volunteer(
-        number=number,
-        street_number=street_number,
-        street=street,
-        city=city,
-        country=country,
-        longitude=longitude,
-        latitude=latitude,
-        is_available_am=is_available_am,
-        is_available_pm=is_available_pm,
-    )
-
-    # check to see if number already in list
-    reg_volunteer = Volunteer.query.filter_by(number=volunteer.number).first()
-
-    if reg_volunteer is not None:
-        db.session.delete(reg_volunteer)
-        db.session.add(volunteer)
-        db.session.commit()
-        return f"{number} already in volunteer list. Updating with new info."
-
-    else:
-        db.session.add(volunteer)
-        db.session.commit()
-        return f"Added {number} to volunteer list. " \
-               f"For your first mission, from WhatsApp send '{sandbox_code}' " \
-               f" to: {sandbox_number}"
-
-
-@app.route("/delete_number")
-def delete_number():
-    """
-    Example:
-
-    http://127.0.0.1:5000/delete?number=%2B16503051656
-    """
-
-    number = request.args.get('number')
-    reg_volunteer = Volunteer.query.filter_by(number=number).first()
-
-    if reg_volunteer is not None:
-        db.session.delete(reg_volunteer)
-        db.session.commit()
-        return f"Removed {number} from database."
-    else:
-        return f"{number} was not in database."
+client = TwilioClient(account_sid, auth_token)
 
 
 @app.route("/get_volunteers")
@@ -174,15 +112,38 @@ def remove():
     if request.method == "POST":
         number = request.form.get('number').replace(" ", "")  # remove spaces
         reg_volunteer = Volunteer.query.filter_by(number=number).first()
+        reg_client = Client.query.filter_by(number=number).first()
 
-        if reg_volunteer is not None:
-            db.session.delete(reg_volunteer)
-            db.session.commit()
-            return f"Removed {number} from database."
+        if reg_volunteer is not None or reg_client is not None:
+            if reg_volunteer is not None:
+                db.session.delete(reg_volunteer)
+                db.session.commit()
+            if reg_client is not None:
+                db.session.delete(reg_client)
+                db.session.commit()
+            return redirect(url_for('removed', number=number))
         else:
-            return f"{number} is not in database."
+            return redirect(url_for('not_in_database', number=number))
 
     return render_template("delete.html")
+
+
+@app.route('/removed')
+def removed():
+    number = request.args.get('number')
+    return render_template(
+        'removed.html',
+        number=number
+    )
+
+
+@app.route('/not_in_database')
+def not_in_database():
+    number = request.args.get('number')
+    return render_template(
+        'not_in_database.html',
+        number=number
+    )
 
 
 @app.route("/get_info", methods=['GET', 'POST'])
@@ -198,7 +159,7 @@ def get_info():
         reg_volunteer = Volunteer.query.filter_by(number=number)
 
         if reg_volunteer.count() == 0:
-            return "this number is not in our database"
+            return redirect(url_for('not_in_database', number=number))
         else:
             info = reg_volunteer.first().serialize()
             body = [
@@ -206,17 +167,29 @@ def get_info():
             ]
             body = "\n".join(body)
             body = "Hey there! This is the info we have on you:\n\n" + body
-            message = client.messages.create(
+            client.messages.create(
                 from_=f'whatsapp:{sandbox_number}',
                 body=body,
                 to='whatsapp:{}'.format(number)
             )
-            return f"sent message : {message.sid}"
+            return redirect(url_for('sent_info', number=number))
+            # return f"sent message : {message.sid}"
 
     return render_template("get_info.html")
 
 
-@app.route("/volunteer", methods=['GET', 'POST'])
+@app.route('/sent_info')
+def sent_info():
+    number = request.args.get('number')
+    return render_template(
+        'sent_info.html',
+        number=number,
+        sandbox_number=sandbox_number,
+        sandbox_code=sandbox_code
+    )
+
+
+@app.route("/", methods=['GET', 'POST'])
 def add_volunteer_form():
     """
     Example:
@@ -226,7 +199,6 @@ def add_volunteer_form():
 
     if request.method == "POST":
         number = request.form.get('number').replace(" ", "")   # remove spaces
-        # street_number = request.form.get('street_number')
         street = request.form.get('street')
         city = request.form.get('city')
         country = request.form.get('country')
@@ -265,14 +237,14 @@ def add_volunteer_form():
         # create volunteer object
         volunteer = Volunteer(
             number=number,
-            # street_number=street_number,
             street=street,
             city=city,
             country=country,
             longitude=longitude,
             latitude=latitude,
-            is_available_am=is_available_morning,
-            is_available_pm=is_available_afternoon or is_available_evening,
+            morning=is_available_morning,
+            afternoon=is_available_afternoon,
+            evening=is_available_evening
         )
 
         # check to see if number already in list
@@ -282,16 +254,46 @@ def add_volunteer_form():
             db.session.delete(reg_volunteer)
             db.session.add(volunteer)
             db.session.commit()
-            return f"{number} already in volunteer list. Updating with new info."
+            return redirect(
+                url_for('update_volunteer', number=volunteer.number))
 
         else:
             db.session.add(volunteer)
             db.session.commit()
-            return f"Added {number} to volunteer list. " \
-                   f"For your first mission, from WhatsApp send '{sandbox_code}' " \
-                   f" to: {sandbox_number}"
+            return redirect(
+                url_for('add_volunteer', number=volunteer.number))
 
     return render_template("getdata.html")
+
+
+@app.route('/update_volunteer')
+def update_volunteer():
+    number = request.args.get('number')
+
+    reg_volunteer = Volunteer.query.filter_by(number=number)
+    data = reg_volunteer.first().serialize()
+
+    return render_template(
+        'update_volunteer.html',
+        data=data,
+        sandbox_number=sandbox_number,
+        sandbox_code=sandbox_code
+    )
+
+
+@app.route('/add_volunteer')
+def add_volunteer():
+    number = request.args.get('number')
+
+    reg_volunteer = Volunteer.query.filter_by(number=number)
+    data = reg_volunteer.first().serialize()
+
+    return render_template(
+        'add_volunteer.html',
+        data=data,
+        sandbox_number=sandbox_number,
+        sandbox_code=sandbox_code
+    )
 
 
 @app.route("/helpme", methods=['GET', 'POST'])
@@ -307,65 +309,102 @@ def add_client_form():
         street = request.form.get('street')
         city = request.form.get('city')
         country = request.form.get('country')
-        is_available_morning = request.form.get('morning') != None
-        is_available_afternoon = request.form.get('afternoon') != None
-        is_available_evening = request.form.get('evening') != None
+        order = request.form.get('order')
+        date = request.form.get('date')
+        morning = request.form.get('morning') != None
+        afternoon = request.form.get('afternoon') != None
+        evening = request.form.get('evening') != None
+        if not morning and not afternoon and not evening:
+            morning = True
+            afternoon = True
+            evening = True
 
-        # if street == "":
-        #     street = None
-        # if city == "":
-        #     city = None
-        # if country == "":
-        #     country = None
-        # if street is not None and city is not None and country is not None:
-        #     # geolocate
-        #     data = {
-        #         'key': os.environ.get('LOCATIONIQ_TOKEN'),
-        #         'street': street,
-        #         "city": city,
-        #         "country": country,
-        #         'format': 'json'
-        #     }
-        #     response = requests.get(locationiq_url, params=data)
-        #     d = json.loads(response.text)[0]
-        #     address = d["display_name"]
-        #     longitude = float(d["lon"])
-        #     latitude = float(d["lat"])
-        #
-        # else:
-        #     street = None
-        #     city = None
-        #     country = None
-        #     longitude = None
-        #     latitude = None
+        if street == "":
+            street = None
+        if city == "":
+            city = None
+        if country == "":
+            country = None
+        if street is not None and city is not None and country is not None:
+            # geolocate
+            data = {
+                'key': os.environ.get('LOCATIONIQ_TOKEN'),
+                'street': street,
+                "city": city,
+                "country": country,
+                'format': 'json'
+            }
+            response = requests.get(locationiq_url, params=data)
+            d = json.loads(response.text)[0]
+            address = d["display_name"]
+            longitude = float(d["lon"])
+            latitude = float(d["lat"])
 
-        # # create volunteer object
-        # volunteer = Volunteer(
-        #     number=number,
-        #     # street_number=street_number,
-        #     street=street,
-        #     city=city,
-        #     country=country,
-        #     longitude=longitude,
-        #     latitude=latitude,
-        #     is_available_am=is_available_morning,
-        #     is_available_pm=is_available_afternoon or is_available_evening,
-        # )
-        #
-        # # check to see if number already in list
-        # reg_volunteer = Volunteer.query.filter_by(number=volunteer.number).first()
-        #
-        # if reg_volunteer is not None:
-        #     db.session.delete(reg_volunteer)
-        #     db.session.add(volunteer)
-        #     db.session.commit()
-        #     return f"{number} already in volunteer list. Updating with new info."
-        #
-        # else:
-        #     db.session.add(volunteer)
-        #     db.session.commit()
-        #     return f"Added {number} to volunteer list. " \
-        #            f"For your first mission, from WhatsApp send '{sandbox_code}' " \
-        #            f" to: {sandbox_number}"
+        else:
+            street = None
+            city = None
+            country = None
+            longitude = None
+            latitude = None
+
+        # create client object
+        client = Client(
+            number=number,
+            street=street,
+            city=city,
+            country=country,
+            longitude=longitude,
+            latitude=latitude,
+            morning=morning,
+            afternoon=afternoon,
+            evening=evening,
+            order=order,
+            date=date
+        )
+
+        # check to see if number already in list
+        reg_client = Client.query.filter_by(number=client.number).first()
+
+        if reg_client is not None:
+            db.session.delete(reg_client)
+            db.session.add(client)
+            db.session.commit()
+            return redirect(
+                url_for('update_client', number=client.number))
+        else:
+            db.session.add(client)
+            db.session.commit()
+            return redirect(
+                url_for('add_client', number=client.number))
 
     return render_template("help.html")
+
+
+@app.route('/update_client')
+def update_client():
+    number = request.args.get('number')
+
+    reg_client = Client.query.filter_by(number=number)
+    data = reg_client.first().serialize()
+
+    return render_template(
+        'update_client.html',
+        data=data,
+        sandbox_number=sandbox_number,
+        sandbox_code=sandbox_code
+    )
+
+
+@app.route('/add_client')
+def add_client():
+    number = request.args.get('number')
+
+    reg_client = Client.query.filter_by(number=number)
+    data = reg_client.first().serialize()
+
+    return render_template(
+        'add_client.html',
+        data=data,
+        sandbox_number=sandbox_number,
+        sandbox_code=sandbox_code
+    )

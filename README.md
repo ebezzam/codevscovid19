@@ -71,9 +71,14 @@ brew install postgres
 brew install postgis
 ```
 
-Create DB and enter:
+Create databases:
 ```bash
 createdb covid19
+createdb clients
+```
+
+Enter:
+```bash
 psql -d covid19
 ```
 
@@ -87,25 +92,25 @@ Make and account and login:
 heroku login
 ```
 
-3) After following Step 7
-
-```bash
-python manage.py db init
-python manage.py db migrate
-python manage.py db upgrade
-```
-
-If you need to restart a database
-```
-dropdb covid19
-rm -rf migrations
-```
 
 Docs for Flask SQL: https://flask-sqlalchemy.palletsprojects.com/en/2.x/queries/
 Docs for Bootstrap (framework for website): https://getbootstrap.com/docs/4.4/components/forms/#checkboxes-and-radios
 
 
-Run site server:
+### Get entries from dataset
+
+
+```bash
+sqlite3 volunteers.db   # .exit to quit
+sqlite3 clients.db      # .exit to quit
+```
+
+To delete
+```bash
+rm *.db
+```
+
+launch:
 ```bash
 python manage.py runserver
 ```

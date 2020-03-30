@@ -36,27 +36,17 @@
             <br>
 
             <div class="row align-items-center justify-content-center">
-                <h1>Remove your number</h1>
+                <h3>Sent info to: {{ number }}</h3>
             </div>
             <br>
-
-            <form method="POST">
-
-                <label for="number">WhatsApp number</label>
-                <div class="form-row">
-                    <input class="form-control" type="text" placeholder="With country code, e.g. +1 800 555 1234" id="number" name="number" required>
-                </div>
-                <br>
-
-                <br>
-                <div class="row align-items-center justify-content-center">
-                    <button type="submit" class="btn btn-primary">Delete :(</button>
-                </div>
-                <br>
-
-            </form>
-            <br><br>
         </div>
+
+        <div class="alert alert-warning" role="alert">
+            Didn't get anything? As we are in development mode, be sure to send
+            "{{ sandbox_code }}" to the number "{{ sandbox_number }}" on
+            WhatsApp in order to receive messages from us.
+        </div>
+
     </div>
 
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js " integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo "
