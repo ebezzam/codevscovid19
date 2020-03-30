@@ -101,6 +101,66 @@ def get_volunteers():
     return result
 
 
+@app.route("/get_clients")
+def get_clients():
+    """
+    Example:
+
+    https://3fb61cb3.ngrok.io/get_clients?pwd=PASSWORD&city=Lausanne
+
+    https://3fb61cb3.ngrok.io/get_clients?pwd=PASSWORD&lon=6.58989274833333&lat=46.5267366&dist=5
+
+    where PASSWORD should be replaced with appropriate password
+    """
+
+    pwd = request.args.get('pwd')
+    if pwd != os.environ.get('COVID19_TOKEN'):
+        return "Access denied"
+
+    city = request.args.get('city')
+    longitude = request.args.get('lon')
+    if longitude is not None:
+        longitude = float(longitude)
+    latitude = request.args.get('lat')
+    if latitude is not None:
+        latitude = float(latitude)
+    max_dist = request.args.get('dist')
+    if max_dist is None:
+        max_dist = 5
+    else:
+        max_dist = float(max_dist)
+
+    # query registered volunteers
+    # reg_volunteer = Volunteer.query.filter(Volunteer.latitude.isnot(None))
+    if longitude is not None and latitude is not None:
+
+        coord = Coordinate(lon=longitude, lat=latitude)
+        max_coord, min_coord = coord.bounding_box(max_dist=max_dist)
+        reg_client = Client.query.filter(
+            and_(
+                Client.longitude.between(min_coord.lon, max_coord.lon),
+                Client.latitude.between(min_coord.lat, max_coord.lat)
+            )
+        )
+    elif city is not None:
+        reg_client = Client.query.filter_by(city=city)
+    else:
+        raise ValueError("Provide GPS coordinates or city.")
+
+    # build result
+    n_clients = reg_client.count()
+    result = {
+            "n_clients": n_clients
+        }
+
+    numbers = reg_client.all()
+    clients = []
+    for _num in numbers:
+        clients.append(_num.serialize())
+    result["clients"] = clients
+    return result
+
+
 @app.route("/delete", methods=['GET', 'POST'])
 def remove():
     """
@@ -228,9 +288,6 @@ def add_volunteer_form():
             latitude = float(d["lat"])
 
         else:
-            street = None
-            city = None
-            country = None
             longitude = None
             latitude = None
 
@@ -341,9 +398,6 @@ def add_client_form():
             latitude = float(d["lat"])
 
         else:
-            street = None
-            city = None
-            country = None
             longitude = None
             latitude = None
 
